@@ -11,6 +11,8 @@ import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
 
+import java.util.HashMap;
+
 public class MainActivity extends AppCompatActivity {
     private Context mCT;
     @Override
@@ -20,12 +22,23 @@ public class MainActivity extends AppCompatActivity {
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
+        SystemInfoUtils.init(this);
+
        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
                         .setAction("Action", null).show();
+
+                for(int i = 0; i < 30; i++)
+                if(true){
+                    HashMap<String, String> map = new HashMap<>();
+                    map.put("p1", "1111");
+                    map.put("p2", "" + 0);
+                    map.put("p3", "");
+                    RemoteLogUtils.doLog(8, map);
+                }
             }
         });
 

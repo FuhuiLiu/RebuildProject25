@@ -8,8 +8,8 @@ import android.content.Context;
  */
 
 public class MyApplication extends Application {
-    public MyApplication(){
-        super();
+    static {
+        System.loadLibrary("native-lib");
     }
     public native void onCreate() ;
     protected native void attachBaseContext(Context ct);

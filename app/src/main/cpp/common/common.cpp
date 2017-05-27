@@ -421,9 +421,11 @@ bool getSelfMD5Sig(IN JNIEnv *env, OUT char *pBufOut)
             MYLOGI("getSelfMD5Sig ThisPackage Sig MD5 from NDK: %s", pMD5ThisPackage);
             strcpy(pBufOut, pMD5ThisPackage);
             delete[] pMD5ThisPackage;
+            return true;
         }
     } else
     MYLOGE("objdigestResult error");
+    return false;
 }
 /**
  * 获取IMSI（SubscriberId）

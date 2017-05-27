@@ -9,6 +9,8 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <android/asset_manager_jni.h>
+#include <android/asset_manager.h>
 
 
 
@@ -74,9 +76,11 @@ jfieldID g_FieldIDmDexs;
 jfieldID g_FieldIDmCookie;
 
 jmethodID g_MethodIDcurrentActivityThread;
-jmethodID g_MethodIDsize;
-jmethodID g_MethodIDget;
-jmethodID g_MethodIDset;
+jmethodID g_MethodIDArrayListsize;
+jmethodID g_MethodIDArrayListget;
+jmethodID g_MethodIDArrayMapget;
+jmethodID g_MethodIDHashMapget;
+jmethodID g_MethodIDArrayListset;
 jmethodID g_MethodIDgetPackageName;
 jmethodID g_MethodIDgetApplicationInfo;
 jmethodID g_MethodIDgetClassLoader;
@@ -93,8 +97,9 @@ jmethodID g_StaticMethodIDgetProperty;
 
 bool g_isDalvik;
 bool g_isArt;
-
+char g_PackageName[0xff]; //存储包名
 int g_nSDKINT;
+
 int initClassesAndMethods(JNIEnv *pEnv)
 {
     MYLOG("debug", "enter init classes");
@@ -121,17 +126,17 @@ int initClassesAndMethods(JNIEnv *pEnv)
                     MYLOG( "debug", "ERROR: ArrayMap");
                     return false;
                 }
-                g_MethodIDget = pEnv->GetMethodID(g_ClsArrayMap, "get", "(Ljava/lang/Object;)Ljava/lang/Object;");
+                g_MethodIDArrayMapget = pEnv->GetMethodID(g_ClsArrayMap, "get", "(Ljava/lang/Object;)Ljava/lang/Object;");
             }
             else
             {
                 g_FieldIDmPackages = pEnv->GetFieldID(g_ClsActivityThread, "mPackages", "Ljava/util/HashMap;");
-                if ( g_NewClsGlabel(pEnv, &g_ClsHashMap, "android/util/ArrayMap") )
+                if ( g_NewClsGlabel(pEnv, &g_ClsHashMap, "android/util/HashMap") )
                 {
                     MYLOG( "debug", "ERROR: HashMap");
                     return false;
                 }
-                g_MethodIDget = pEnv->GetMethodID(g_ClsHashMap, "get", "(Ljava/lang/Object;)Ljava/lang/Object;");
+                g_MethodIDHashMapget = pEnv->GetMethodID(g_ClsHashMap, "get", "(Ljava/lang/Object;)Ljava/lang/Object;");
             }
             g_FieldIDmBoundApplication = pEnv->GetFieldID(g_ClsActivityThread, "mBoundApplication", "Landroid/app/ActivityThread$AppBindData;");
             g_FieldIDmInitialApplication = pEnv->GetFieldID(g_ClsActivityThread,
@@ -158,9 +163,9 @@ int initClassesAndMethods(JNIEnv *pEnv)
                 }
                 else
                 {
-                    g_MethodIDsize  = pEnv->GetMethodID(g_clsArrayList, "size", "()I");
-                    g_MethodIDget  = pEnv->GetMethodID(g_clsArrayList, "get", "(I)Ljava/lang/Object;");
-                    g_MethodIDset  = pEnv->GetMethodID(g_clsArrayList, "set", "(ILjava/lang/Object;)Ljava/lang/Object;");
+                    g_MethodIDArrayListsize  = pEnv->GetMethodID(g_clsArrayList, "size", "()I");
+                    g_MethodIDArrayListget  = pEnv->GetMethodID(g_clsArrayList, "get", "(I)Ljava/lang/Object;");
+                    g_MethodIDArrayListset  = pEnv->GetMethodID(g_clsArrayList, "set", "(ILjava/lang/Object;)Ljava/lang/Object;");
                     if ( g_NewClsGlabel(pEnv, &g_clsContext, "android/content/Context") )
                     {
                         MYLOG( "debug", "ERROR: class Context");
@@ -168,10 +173,10 @@ int initClassesAndMethods(JNIEnv *pEnv)
                     else
                     {
                         g_MethodIDgetPackageName = pEnv->GetMethodID(g_clsContext, "getPackageName", "()Ljava/lang/String;");
-                        g_MethodIDgetPackageName = pEnv->GetMethodID(g_clsContext, "getApplicationInfo", "()Landroid/content/pm/ApplicationInfo;");
-                        g_MethodIDgetPackageName = pEnv->GetMethodID(g_clsContext, "getClassLoader", "()Ljava/lang/ClassLoader;");
-                        g_MethodIDgetPackageName = pEnv->GetMethodID(g_clsContext, "getAssets", "()Landroid/content/res/AssetManager;");
-                        g_MethodIDgetPackageName = pEnv->GetMethodID(g_clsContext, "getPackageResourcePath", "()Ljava/lang/String;");
+                        g_MethodIDgetApplicationInfo = pEnv->GetMethodID(g_clsContext, "getApplicationInfo", "()Landroid/content/pm/ApplicationInfo;");
+                        g_MethodIDgetClassLoader = pEnv->GetMethodID(g_clsContext, "getClassLoader", "()Ljava/lang/ClassLoader;");
+                        g_MethodIDgetAssets = pEnv->GetMethodID(g_clsContext, "getAssets", "()Landroid/content/res/AssetManager;");
+                        g_MethodIDgetPackageResourcePath = pEnv->GetMethodID(g_clsContext, "getPackageResourcePath", "()Ljava/lang/String;");
                         if(g_NewClsGlabel(pEnv, &g_clsWeakReference, "java/lang/ref/WeakReference"))
                         {
                             MYLOG( "debug", "ERROR: class WeakReference");
@@ -383,59 +388,95 @@ JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *vm, void *reserved) {
 LOGI("JNI_OnUnload");
 return;
 }
+//data/data/packagename/files
 char g_filePath[0xff];
 /**
  * 释放文件
  */
 int u_releaseFile(JNIEnv *env, jobject objApplication)
 {
+#define STAMPFILECONTEXT "Thu Sep 18 19:00:59 CST 2014"
     char timestamp[0xff];
     char clsdexPath[0xff];
     int isUpdata = 0;
     strcpy(timestamp, g_filePath);
     strcpy(clsdexPath, g_filePath);
     strcat(timestamp, "/.timestamp");
-    if(!access(timestamp, 0))
+    //assess测试目标文件是否可以被访问，可以返回0
+    if(!access(timestamp, 0))//如果timestamp文件可以访问
     {
-        stat stat1;
+        struct stat stat1;
         int  nOpenResult = open(timestamp, O_RDWR);
-        if(!fstat(nOpenResult, &stat1))
+        //Get file information, given a file description
+        if(!fstat(nOpenResult, &stat1)) //如果文件信息正常拿到
         {
             FILE* file = fdopen(nOpenResult, "w+");
-            void *pNew = calloc(stat1.st_blksize, 1);
-            fread(pNew, stat1.st_blksize, 1, file);
+            void *pNew = calloc((size_t)stat1.st_blksize, 1);
+            if(pNew)
+            {
+                MYLOGI("debug", "calloc error: %d", errno);
+                return false;
+            }
+            //读取文件内容并判断是否与预期一致
+            fread(pNew, (size_t)stat1.st_blksize, 1, file);
             fclose(file);
-            MYLOGI("debug", "buf:%s timestamp:%s", pNew, "Thu Sep 18 19:00:59 CST 2014");
-            int nCmpResult = strncmp((const char*)pNew, "Thu Sep 18 19:00:59 CST 2014", 0x1Cu);//检查是否更新
+            MYLOGI("debug", "buf:%s timestamp:%s", pNew, STAMPFILECONTEXT);
+            //检查存储内容是否与预设一致
+            int nCmpResult = strncmp((const char*)pNew, STAMPFILECONTEXT, strlen(STAMPFILECONTEXT));
+            //不一致就到后面删除并重新写入预期的内容
             if(nCmpResult)
                 isUpdata = 1;
+            free(pNew);
         }
+        //写入预期的内容作为防止重复释放的标志
         if(isUpdata)
         {
             MYLOGI("debug", "after update, remove files");
             strcat(clsdexPath, "/cls.dex");
-            int nunlinkResult = unlink(clsdexPath);
+            int nunlinkResult = unlink(clsdexPath); // unlink为文件删除命令,成功执行返回0
             if(nunlinkResult)
-            {
-                //errno(nunlinkResult);
-                MYLOGI("debug", "failed to rm files with error:%d", 999);
-            }
+                MYLOGI("debug", "failed to rm files with error:%d", errno);
             FILE* file = fopen(timestamp, "w");
             fwrite("Thu Sep 18 19:00:59 CST 2014", 0x1Cu, 1u, file);
             fclose(file);
         }
     }
+    //获取Application类及其getAssets方法id
     jclass clsApplication = env->GetObjectClass(objApplication);
     jmethodID mIDgetAssets = env->GetMethodID(clsApplication, "getAssets", "()Landroid/content/res/AssetManager;");
-    jobject objAssetManager = env->CallObjectMethod(objApplication, mIDgetAssets);
-    //AssetsManager = AAssetManager_fromJava((int)env_, (int)objAssetsManager);// ????
+    //通过getAssets方法ID获取到AssetManager对象
+    jobject objAssetsManager = env->CallObjectMethod(objApplication, mIDgetAssets);
+    //给定一个Dalvik AssetManager对象，绑定对应的本地AAssetManager*对象
+    AAssetManager* AssetsManager = AAssetManager_fromJava(env, objAssetsManager);
+    //准备释放三个文件
     const char* fileAry[] = {"Charfak.jar", "Charcls.jar", "Charjuice.data"};
-    for (int i = 0; i < sizeof(fileAry) / sizeof(fileAry[0]); ++i) {
-        char curPath[0xff];
-        sprintf(curPath, "%s/%s", g_filePath, fileAry[i]);
-        if(isUpdata || access(curPath, 0))
+    for (int i = 0; i < sizeof(fileAry) / sizeof(fileAry[0]); ++i)
+    {
+        char curFilePath[0xff];
+        char temp[1024];
+        temp[0]  = '\0';
+        //拼接文件路径
+        sprintf(curFilePath, "%s/%s", g_filePath, fileAry[i]);
+        if(isUpdata || access(curFilePath, F_OK))
         {
-            //AAssetManager_open(AssetsManager_, pChar, ACCESS_STREAMING);// 调用AssetsManager.open获取InputStream
+            //AAssetManager打开目标文件i准备读取
+            AAsset * aa = AAssetManager_open(AssetsManager, fileAry[i], AASSET_MODE_STREAMING);// 调用AssetsManager.open获取InputStream
+            MYLOGI("debug", "extract file %s", curFilePath);
+            if(aa)
+            {
+                int nRead = 0;
+                //写入模式打开存储位置
+                FILE *file = fopen(curFilePath, "w");
+                while(nRead > 0)
+                {
+                    nRead = AAsset_read(aa, temp, 1024);
+                    fwrite(temp, nRead, 1, file);
+                }
+                fclose(file);
+                AAsset_close(aa);
+            }
+            else
+                MYLOGI("debug", "file not found");
         }
     }
     return 0;
@@ -467,6 +508,7 @@ int fun_attachBaseContext(JNIEnv *env, _jobject *objApplication, _jobject *conte
         }
         MYLOGI("FilesDir:%s", pPath);
         strcpy(g_filePath, pPath);
+        //获取ApplicationInfo
         jobject objApplicationInfo = env->CallObjectMethod(objApplication, g_MethodIDgetApplicationInfo, JNI_FALSE);
         if(!objApplicationInfo)
         {
@@ -474,6 +516,7 @@ int fun_attachBaseContext(JNIEnv *env, _jobject *objApplication, _jobject *conte
         }
         char NativeLibraryDir[0xff];
         NativeLibraryDir[0] = '\0';
+        //如果SDK版本小于等于8，获取ApplicationInfo的dataDir域并拼接/lib为nativeLibraryDir目录
         if(g_nSDKINT <= 8)
         {
             jstring strDataDir = (jstring)env->GetObjectField(objApplicationInfo, g_FieldIDdataDir);
@@ -483,6 +526,7 @@ int fun_attachBaseContext(JNIEnv *env, _jobject *objApplication, _jobject *conte
             strncpy(NativeLibraryDir, pDataDir, strlen(pDataDir));
             strcat(NativeLibraryDir, "/lib");
         }
+        //如果SDK版本大于8，获取ApplicationInfo的nativeLibraryDir域并拼接/lib为nativeLibraryDir目录
         else
         {
             jstring strnativeLibraryDir = (jstring)env->GetObjectField(objApplicationInfo, g_FieldIDnativeLibraryDir);
@@ -493,18 +537,19 @@ int fun_attachBaseContext(JNIEnv *env, _jobject *objApplication, _jobject *conte
             strcat(NativeLibraryDir, "/lib");
         }
         MYLOGI("global native path is %s", NativeLibraryDir);
-        //application;->getPackageResourcePath
+        //调用application;->getPackageResourcePath获取资源目录路径
         jstring strPackageResourcePath = (jstring)env->CallObjectMethod(objApplication, g_MethodIDgetPackageResourcePath);
+        //"/data/app/aqcxbom.rebuildproject25-1.apk"
         const char* pPackageResourcePath = env->GetStringUTFChars(strPackageResourcePath, JNI_FALSE);
         if(!pPackageResourcePath)
             return 0;
+        //参数不为0：如果存在同名项则覆盖
         setenv("APKPATH", pPackageResourcePath, 1);
         MYLOGI( "global apk path is %s", pPackageResourcePath);
         //释放三个加密相关的文件
-        //....
         u_releaseFile(env, objApplication);
 
-        //context;->getPackageName
+        //context;->getPackageName 获取包名
         jstring strPackageName = (jstring)env->CallObjectMethod(context, g_MethodIDgetPackageName);
         const char* pPackageName = NULL;
         if(strPackageName)
@@ -513,11 +558,14 @@ int fun_attachBaseContext(JNIEnv *env, _jobject *objApplication, _jobject *conte
         }
         if(!pPackageName)
             return 0;
+        strcpy(g_PackageName, pPackageName);
+        //从Context获取ClassLoader
         jobject objClassLoader = env->CallObjectMethod(context, g_MethodIDgetClassLoader);
         //解析dex
         //parse_dex ...
         //replace_classloader_cookie
         MYLOGI("debug", "enter new application");
+        //调用ClassLoader的findClass方法获得android.app.Application类的class
         jstring string_androidappApplication = env->NewStringUTF("android.app.Application");
         //classLoader;->findClass("android.app.Application")
         jobject objNewApplication = NULL;
@@ -527,7 +575,7 @@ int fun_attachBaseContext(JNIEnv *env, _jobject *objApplication, _jobject *conte
         {
             jmethodID mIDinit = env->GetMethodID(clsApplication2, "<init>", "()V");
             objNewApplication = env->NewObject(clsApplication2, mIDinit);
-            env->CallVoidMethod(g_NewApplication, g_MethodIDattach, context);
+            env->CallVoidMethod(objNewApplication, g_MethodIDattach, context);
             env->DeleteLocalRef(clsApplication2);
             MYLOGI("debug", "exit new application");
         }
@@ -551,34 +599,48 @@ int fun_onCreate(JNIEnv *env, jobject objBundle)
     if (g_NewApplication)
     {
         MYLOGI("debug", "enter replace_app_application");
+        //从ActivityThread类调用currentActivityThread方法获取currentActivityThread对象
         jobject objcurrentActivityThread = env->CallStaticObjectMethod(g_ClsActivityThread, g_MethodIDcurrentActivityThread, 0xFFFFFC4C);
-        //ActivityThread;->mPackages
+        //ActivityThread;->mPackages 获取mPackage域成员对象
         jobject objmPackages = env->GetObjectField(objcurrentActivityThread, g_FieldIDmPackages);
-        //这个字串来源不明
-        jstring strUnknow = env->NewStringUTF("");
+        //构建包名
+        jstring strPackageName = env->NewStringUTF(g_PackageName);
+        jobject objWeakReference = NULL;
+        //WeakReference wr = (WeakReference) mPackages.get(packageName);
         if(g_nSDKINT > 18)
         {
-            env->CallObjectMethod(objmPackages, g_MethodIDfindClass, strUnknow);
-            //jobject obj_mPackages = env->CallObjectMethod(objmPackages, )
+            objWeakReference = env->CallObjectMethod(objmPackages, g_MethodIDArrayMapget, strPackageName);
         }
         else
-        {}
-        jobject objLoadedApk = env->CallObjectMethod(objmPackages, g_MethodIDget);
+        {
+            objWeakReference = env->CallObjectMethod(objmPackages, g_MethodIDHashMapget, strPackageName);
+        }
+        env->DeleteLocalRef(strPackageName);
+        //WeakReference.get()获取LoadedApk对象
+        jobject objLoadedApk = env->CallObjectMethod(objWeakReference, g_MethodIDWeakReferenceget);
+        //设置LoadedApk中application字段为新建的Application
         env->SetObjectField(objLoadedApk, g_FieldIDmApplication, g_NewApplication);
+        //设置ActivityThread中InitialApplication字段为新建的Application
         env->SetObjectField(objcurrentActivityThread, g_FieldIDmInitialApplication, g_NewApplication);
+        //获取ActivityThread的mBoundApplication对象
         jobject objmBoundApplication = env->GetObjectField(objcurrentActivityThread, g_FieldIDmBoundApplication);
+        //获取mBoundApplication对象的info域（LoadedApk结构）
         jobject objLoadedApk2 = env->GetObjectField(objmBoundApplication, g_FieldIDinfo);
+        //设置其中application字段为新建的Application
         env->SetObjectField(objLoadedApk2, g_FieldIDmApplication, g_NewApplication);
+        //获取ActivityThread的mAllApplications字段对象类型为ArrayList
         jobject objmAllApplications = env->GetObjectField(objcurrentActivityThread, g_FieldIDmAllApplications);
-        int nSize = env->CallIntMethod(objmAllApplications, g_MethodIDsize);
-        for (int i = 0; i < nSize; ++i) {
-            jobject objApplicationN = env->CallObjectMethod(objmAllApplications, g_MethodIDget, i);
+        int nSize = env->CallIntMethod(objmAllApplications, g_MethodIDArrayListsize);
+        //依次遍历其中，查找与参数objBundle为同一对象的对象，将新的Application设置替换
+        for (int i = 0; i < nSize; ++i)
+        {
+            jobject objApplicationN = env->CallObjectMethod(objmAllApplications, g_MethodIDArrayListget, i);
             MYLOGI("compare: i=%d item=%p", i, objApplicationN);
             jboolean bResult = env->IsSameObject(objBundle, objApplicationN);
             if(bResult)
             {
                 MYLOGI("debug", "replace: find same replace");
-                env->CallObjectMethod(objmAllApplications, g_MethodIDset, i, g_NewApplication);
+                env->CallObjectMethod(objmAllApplications, g_MethodIDArrayListset, i, g_NewApplication);
             }
             env->DeleteLocalRef(objApplicationN);
         }

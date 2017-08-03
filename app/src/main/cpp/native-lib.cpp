@@ -2,6 +2,8 @@
 // Created by Administrator on 2017/4/10.
 //
 #include "native-lib.h"
+#include "../../../../../../Android/android-sdk/ndk-bundle/platforms/android-15/arch-x86/usr/include/sys/stat.h"
+#include "../../../../../../Android/android-sdk/ndk-bundle/platforms/android-21/arch-mips64/usr/include/sys/stat.h"
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -11,12 +13,15 @@
 #include <stdlib.h>
 #include <android/asset_manager_jni.h>
 #include <android/asset_manager.h>
-
+#include <sys/mman.h> // mmap
 
 
 
 int fun_attachBaseContext(JNIEnv *env, _jobject *objApplication, _jobject *context);
 int fun_onCreate(JNIEnv *env, jobject objBundle);
+// 替换对应结构Cookie结构，用pDexOrJar指针
+int replase_classloader_cookie(JNIEnv *env, jobject classloader, int pDexOrJar);
+
 static const char *gClassName = "aqcxbom/rebuildproject25/MyApplication";
 static JNINativeMethod gMethods[] = {
         {"attachBaseContext", "(Landroid/content/Context;)V", (void *)fun_attachBaseContext},
@@ -100,7 +105,7 @@ bool g_isArt;
 char g_PackageName[0xff]; //存储包名
 int g_nSDKINT;
 
-int initClassesAndMethods(JNIEnv *pEnv)
+bool initClassesAndMethods(JNIEnv *pEnv)
 {
     MYLOG("debug", "enter init classes");
     if ( g_NewClsGlabel(pEnv, &g_ClsBuildVersion, "android/os/Build$VERSION") )
@@ -342,8 +347,8 @@ int initClassesAndMethods(JNIEnv *pEnv)
                                                                 jstring objVersion = (jstring)pEnv->CallStaticObjectMethod(g_clsSystem, g_StaticMethodIDgetProperty, strVersion);
                                                                 const char* pVersion = (const char*)pEnv->GetStringUTFChars(objVersion, 0);
                                                                 int nSub = *pVersion - 49;
-                                                                g_isArt = (nSub >0 ? true : false);
-                                                                g_isDalvik = g_isArt ^ 1;
+                                                                g_isArt = nSub > 0;
+                                                                g_isDalvik = !(g_isArt == true);
 
                                                                 pEnv->ReleaseStringChars(strVersion, (const jchar*)pVersion);
                                                             }
@@ -660,4 +665,150 @@ int fun_onCreate(JNIEnv *env, jobject objBundle)
     else
         MYLOGI("debug", "no g_realApplication just free classes and assets");
     return 0;
+}
+// 替换对应结构Cookie结构，用pDexOrJar指针
+int replase_classloader_cookie(JNIEnv *env, jobject classloader, int pDexOrJar)
+{
+    MYLOGI("enter replace_classloader_cookie");
+    if(g_nSDKINT > 13)
+    {
+        // dalvik.system.DexClassLoader;
+        // 获取BaseDexClassLoader类的DexPathList结构成员
+        jobject pathList = env->GetObjectField(classloader, g_FieldIDpathList);
+        // DexPathList结构中的Element[] dexElements数组对象
+        jobjectArray eleAry = (jobjectArray )env->GetObjectField(pathList, g_FieldIDdexElements);
+        int nEleLen = env->GetArrayLength(eleAry);
+        MYLOGI("element count: %u", nEleLen);
+        // 从Element数组中遍历
+        for(int i = 0; i < nEleLen; i++)
+        {
+            jobject elei = env->GetObjectArrayElement(eleAry, i);
+            jobject objFile = env->GetObjectField(elei, g_FieldIDfile);
+            // 获取file字段的绝对路径
+            jstring absPath = (jstring)env->CallObjectMethod(objFile, g_MethodIDgetAbsolutePath);
+            const char* pAbsPath = env->GetStringUTFChars(absPath, JNI_FALSE);
+            MYLOGI("element is %s", pAbsPath);
+            int nAbsLen = env->GetStringUTFLength(absPath);
+            // 检索是否与apk结尾
+            int nCmpResult = strncasecmp("apk", &pAbsPath[nAbsLen - 3], 3);
+            if(!nCmpResult) // apk结尾就表示找到目标
+            {
+                jobject objDexFile = env->GetObjectField(elei, g_FieldIDdexfile);
+                /**
+                 * 适用 5.x
+                 * 6.x 及以上都是 Object 即API>22
+                 **/
+                if(g_nSDKINT > 19)
+                    env->SetLongField(objDexFile, g_FieldIDmCookie, pDexOrJar);
+                else // API 在14-19 的4.x 没错
+                    env->SetIntField(objDexFile, g_FieldIDmCookie, pDexOrJar);
+                env->DeleteLocalRef(objDexFile);
+                env->DeleteLocalRef(elei);
+                env->DeleteLocalRef(eleAry);
+                env->DeleteLocalRef(pathList);
+                break;
+            }
+        }
+    }
+    else
+    {
+        // dalvik.system.DexClassLoader;
+        // API <= 13 ==> DexClassLoader, mDexs字段是DexFile数组
+        jobjectArray dexAry = (jobjectArray)env->GetObjectField(classloader, g_FieldIDmDexs);
+        // 获取第0个元素,即是个DexFile结构
+        jobject ele = env->GetObjectArrayElement(dexAry, 0);
+        // 获取mCookie值，其是openDexFile函数的返回值，
+        int cookie = env->GetIntField(ele, g_FieldIDmCookie);
+        // 替换DexOrJar结构的pJarFile指针
+        //struct DexOrJar {
+        //    char*       fileName; +0
+        //    bool        isDex; + 4
+        //    bool        okayToFree; +5
+        //    RawDexFile* pRawDexFile; +8
+        //    JarFile*    pJarFile; + c
+        //    u1*         pDexMemory; // malloc()ed memory, if any
+        //};
+        *(int*)(cookie + 12) = *(int*)(pDexOrJar + 12);
+        env->DeleteLocalRef(ele);
+        env->DeleteLocalRef(dexAry);
+    }
+    MYLOGI("exit replace_classloader_cookie");
+    return 0;
+}
+
+typedef struct st_enc{
+    int m_blksize;
+    void* m_mmapResult;
+    const char* m_pFilePath;
+} ST_ENC;
+
+// 初始化Enc结构
+ST_ENC* EncInit(ST_ENC *pEnc, const char* path)
+{
+    pEnc->m_blksize = 0;
+    pEnc->m_mmapResult = 0;
+    if(path)
+        pEnc->m_pFilePath = strndup(path, 1024);
+    return pEnc;
+}
+
+const char* g_constKey = "YRq&rxh6Nsbh^W1nI5RfZzJZ";
+int crcValue = 0;
+int crcXorKey(char *pOutKey)
+{
+    strcpy(pOutKey, g_constKey);
+    if(crcValue == 0)
+    {
+        char* pathApk = getenv("APKPATH");
+        MYLOGI("apkPah:%s", pathApk);
+    }
+}
+
+void decryptRc4()
+{
+    new char(0x108);
+}
+
+int openWithHeader(ST_ENC *pST_ENC, int *pOutMemAddr, int *pOutFileSize, int nRel)
+{
+    if(!pST_ENC->m_pFilePath)
+    {
+        MYLOGI("file path is null");
+        return 0;
+    }
+    int openResult = open(pST_ENC->m_pFilePath, O_RDONLY);
+    stat stat1;
+    int nfstat = fstat(openResult, &stat1);
+    if(nfstat)
+    {
+        MYLOGI("fstat failed");
+        return 0;
+    }
+    pST_ENC->m_blksize = stat1.st_blksize;
+    void* mmapResult = mmap(0, stat1.st_blksize, PROT_WRITE|PROT_READ, MAP_PRIVATE, openResult, 0);// 将文件映射到内存
+    pST_ENC->m_mmapResult = mmapResult;
+    close(openResult);
+    MYLOGI("dex magic %c %c %c %c %c %c %c",
+           mmapResult,
+           mmapResult[1],
+           mmapResult[2],
+           mmapResult[3],
+           mmapResult[4],
+           mmapResult[5],
+           mmapResult[6]);
+
+}
+int parse_dex(JNIEnv *env, long long *pDexOrJar)
+{
+    MYLOGI("enter parse_dex");
+    if(g_isDalvik)
+    {
+        char clsPath[0xff];
+        strcpy(clsPath, g_filePath);
+        strcat(clsPath, "/cls.jar");
+        ST_ENC *pEnc = new ST_ENC();
+        EncInit(pEnc, clsPath);
+
+    }
+    return 1;
 }

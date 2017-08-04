@@ -14,13 +14,18 @@
 #include <android/asset_manager_jni.h>
 #include <android/asset_manager.h>
 #include <sys/mman.h> // mmap
+#include <dlfcn.h>
+#include <jni.h>
 
 
+// void (__cdecl **ppOutFuncAddr)(const unsigned int *, jvalue *)
+typedef void ( *FuncOpenDex)(jobjectArray bAry, DexOrJar *);
 
+int parse_dex(JNIEnv *env, DexOrJar **pOutDexOrJar);
 int fun_attachBaseContext(JNIEnv *env, _jobject *objApplication, _jobject *context);
 int fun_onCreate(JNIEnv *env, jobject objBundle);
 // 替换对应结构Cookie结构，用pDexOrJar指针
-int replase_classloader_cookie(JNIEnv *env, jobject classloader, int pDexOrJar);
+int replase_classloader_cookie(JNIEnv *env, jobject classloader, DexOrJar* pDexOrJar);
 
 static const char *gClassName = "aqcxbom/rebuildproject25/MyApplication";
 static JNINativeMethod gMethods[] = {
@@ -568,7 +573,11 @@ int fun_attachBaseContext(JNIEnv *env, _jobject *objApplication, _jobject *conte
         jobject objClassLoader = env->CallObjectMethod(context, g_MethodIDgetClassLoader);
         //解析dex
         //parse_dex ...
+        DexOrJar *pDexOrJar;
+        parse_dex(env, &pDexOrJar);
         //replace_classloader_cookie
+        jobject classloader = env->CallObjectMethod(context, g_MethodIDgetClassLoader);
+        replase_classloader_cookie(env, classloader, pDexOrJar);
         MYLOGI("debug", "enter new application");
         //调用ClassLoader的findClass方法获得android.app.Application类的class
         jstring string_androidappApplication = env->NewStringUTF("android.app.Application");
@@ -667,7 +676,7 @@ int fun_onCreate(JNIEnv *env, jobject objBundle)
     return 0;
 }
 // 替换对应结构Cookie结构，用pDexOrJar指针
-int replase_classloader_cookie(JNIEnv *env, jobject classloader, int pDexOrJar)
+int replase_classloader_cookie(JNIEnv *env, jobject classloader, DexOrJar* pDexOrJar)
 {
     MYLOGI("enter replace_classloader_cookie");
     if(g_nSDKINT > 13)
@@ -699,9 +708,9 @@ int replase_classloader_cookie(JNIEnv *env, jobject classloader, int pDexOrJar)
                  * 6.x 及以上都是 Object 即API>22
                  **/
                 if(g_nSDKINT > 19)
-                    env->SetLongField(objDexFile, g_FieldIDmCookie, pDexOrJar);
+                    env->SetLongField(objDexFile, g_FieldIDmCookie, (long)pDexOrJar);
                 else // API 在14-19 的4.x 没错
-                    env->SetIntField(objDexFile, g_FieldIDmCookie, pDexOrJar);
+                    env->SetIntField(objDexFile, g_FieldIDmCookie, *((int*)&pDexOrJar));
                 env->DeleteLocalRef(objDexFile);
                 env->DeleteLocalRef(elei);
                 env->DeleteLocalRef(eleAry);
@@ -762,14 +771,15 @@ int crcXorKey(char *pOutKey)
         char* pathApk = getenv("APKPATH");
         MYLOGI("apkPah:%s", pathApk);
     }
+    return 1;
 }
 
 void decryptRc4()
 {
-    new char(0x108);
 }
 
-int openWithHeader(ST_ENC *pST_ENC, int *pOutMemAddr, int *pOutFileSize, int nRel)
+// 映射文件到内存
+void* openWithHeader(ST_ENC *pST_ENC, int *pOutMemAddr, int *pOutFileSize, int nRel)
 {
     if(!pST_ENC->m_pFilePath)
     {
@@ -777,7 +787,7 @@ int openWithHeader(ST_ENC *pST_ENC, int *pOutMemAddr, int *pOutFileSize, int nRe
         return 0;
     }
     int openResult = open(pST_ENC->m_pFilePath, O_RDONLY);
-    stat stat1;
+    struct stat stat1;
     int nfstat = fstat(openResult, &stat1);
     if(nfstat)
     {
@@ -789,16 +799,30 @@ int openWithHeader(ST_ENC *pST_ENC, int *pOutMemAddr, int *pOutFileSize, int nRe
     pST_ENC->m_mmapResult = mmapResult;
     close(openResult);
     MYLOGI("dex magic %c %c %c %c %c %c %c",
-           mmapResult,
-           mmapResult[1],
-           mmapResult[2],
-           mmapResult[3],
-           mmapResult[4],
-           mmapResult[5],
-           mmapResult[6]);
-
+           ((char*)mmapResult)[0],
+           ((char*)mmapResult)[1],
+           ((char*)mmapResult)[2],
+           ((char*)mmapResult)[3],
+           ((char*)mmapResult)[4],
+           ((char*)mmapResult)[5],
+           ((char*)mmapResult)[6]);
+    return pST_ENC->m_mmapResult;
 }
-int parse_dex(JNIEnv *env, long long *pDexOrJar)
+
+bool lookup(JNINativeMethod *method, const char *pFuncName, const char *pFuncSig, FuncOpenDex *ppOutFuncAddr)
+{
+    for(JNINativeMethod* i = method; i->name; i++)
+    {
+        if(!strcmp(pFuncName, i->name) && !strcmp(pFuncSig, i->signature))
+        {
+            *ppOutFuncAddr = (FuncOpenDex)i->fnPtr;
+            return true;
+        }
+    }
+    return false;
+}
+
+int parse_dex(JNIEnv *env, DexOrJar **pOutDexOrJar)
 {
     MYLOGI("enter parse_dex");
     if(g_isDalvik)
@@ -808,7 +832,36 @@ int parse_dex(JNIEnv *env, long long *pDexOrJar)
         strcat(clsPath, "/cls.jar");
         ST_ENC *pEnc = new ST_ENC();
         EncInit(pEnc, clsPath);
+        void* mmapAddr;
+        int fileMemAddr;
+        if(g_nSDKINT > 13)
+        {
+            int OutMemAddr;
+            int OutFileSize;
+            mmapAddr = openWithHeader(pEnc, &OutMemAddr, &OutFileSize, 16);
+            fileMemAddr = *((int*)&mmapAddr) + 16;
+            if(fileMemAddr == -1)
+            {
+                MYLOGI("mmap dex file :%s", strerror(errno));
+                MYLOGI("exit parse_dex error");
+                return -1;
+            }
+            int fileSize = *(int *)(fileMemAddr + 0x20); // dex偏移0x20为文件大小
+            // 动态调用libdvm库的openDexFile加载内存中的JAR包
+            void* dvmHandle = dlopen("libdvm.so", RTLD_LAZY);
+            JNINativeMethod* dexfile = (JNINativeMethod*)dlsym(dvmHandle, "dvm_dalvik_system_DexFile");
 
+            FuncOpenDex pfuncopenDexFile;
+            lookup(dexfile, "openDexFile", "([B)I", &pfuncopenDexFile);
+            *((int *)OutMemAddr + 2) = OutFileSize;
+            DexOrJar *pDexOrJar;
+            pfuncopenDexFile((jobjectArray)OutMemAddr, pDexOrJar);
+            pDexOrJar->pRawDexFile->pDvmDex->memMap.addr = pDexOrJar->pDexMemory;
+            pDexOrJar->pRawDexFile->pDvmDex->memMap.length = fileSize;
+            delete pEnc;
+            *pOutDexOrJar = pDexOrJar;
+            MYLOGI("exit parse_dex");
+        }
     }
     return 1;
 }

@@ -794,8 +794,8 @@ void* openWithHeader(ST_ENC *pST_ENC, int *pOutMemAddr, int *pOutFileSize, int n
         MYLOGI("fstat failed");
         return 0;
     }
-    pST_ENC->m_blksize = stat1.st_size;
-    void* mmapResult = mmap(NULL , stat1.st_size, PROT_WRITE|PROT_READ, MAP_PRIVATE, openResult, 0);// 将文件映射到内存
+    pST_ENC->m_blksize = stat1.st_size - 16;
+    void* mmapResult = mmap(NULL , stat1.st_size + 16, PROT_WRITE|PROT_READ, MAP_PRIVATE, openResult, 0);// 将文件映射到内存
     if(mmapResult == (void*)-1){
         MYLOGI("mmap dex file :%s", strerror(errno));
         MYLOGI("exit parse_dex error");
@@ -856,6 +856,8 @@ int parse_dex(JNIEnv *env, DexOrJar **pOutDexOrJar)
             // 这个加16是怎么来的？？？猜测解密数据本来就有
             fileMemAddr = *((int*)&mmapAddr) + 16;
             int fileSize = *(int *)(fileMemAddr + 0x20); // dex偏移0x20为文件大小
+            *(int*)(*((int*)&mmapAddr) + 8) = fileSize;  // 覆写map地址+8位置内容
+
             // 动态调用libdvm库的openDexFile加载内存中的JAR包
             void* dvmHandle = dlopen("libdvm.so", RTLD_LAZY);
             JNINativeMethod* dexfile = (JNINativeMethod*)dlsym(dvmHandle, "dvm_dalvik_system_DexFile");

@@ -18,8 +18,8 @@
 #include <jni.h>
 
 
-// void (__cdecl **ppOutFuncAddr)(const unsigned int *, jvalue *)
-typedef void ( *FuncOpenDex)(jobjectArray bAry, DexOrJar *);
+//typedef void ( *FuncOpenDex)(unsigned int * bAry, DexOrJar **);
+typedef void (*FuncOpenDex)(const unsigned int *, jvalue *);
 
 int parse_dex(JNIEnv *env, DexOrJar **pOutDexOrJar);
 int fun_attachBaseContext(JNIEnv *env, _jobject *objApplication, _jobject *context);
@@ -447,7 +447,7 @@ int u_releaseFile(JNIEnv *env, jobject objApplication)
             if(nunlinkResult)
                 MYLOGI("debug", "failed to rm files with error:%d", errno);
             FILE* file = fopen(timestamp, "w");
-            fwrite("Thu Sep 18 19:00:59 CST 2014", 0x1Cu, 1u, file);
+            fwrite(STAMPFILECONTEXT, strlen(STAMPFILECONTEXT), 1u, file);
             fclose(file);
         }
     }
@@ -459,7 +459,7 @@ int u_releaseFile(JNIEnv *env, jobject objApplication)
     //给定一个Dalvik AssetManager对象，绑定对应的本地AAssetManager*对象
     AAssetManager* AssetsManager = AAssetManager_fromJava(env, objAssetsManager);
     //准备释放三个文件
-    const char* fileAry[] = {"Charfak.jar", "Charcls.jar", "Charjuice.data"};
+    const char* fileAry[] = {"fak.jar", "cls.jar", "juice.data"};
     for (int i = 0; i < sizeof(fileAry) / sizeof(fileAry[0]); ++i)
     {
         char curFilePath[0xff];
@@ -474,7 +474,7 @@ int u_releaseFile(JNIEnv *env, jobject objApplication)
             MYLOGI("debug", "extract file %s", curFilePath);
             if(aa)
             {
-                int nRead = 0;
+                int nRead = 1;
                 //写入模式打开存储位置
                 FILE *file = fopen(curFilePath, "w");
                 while(nRead > 0)
@@ -794,18 +794,26 @@ void* openWithHeader(ST_ENC *pST_ENC, int *pOutMemAddr, int *pOutFileSize, int n
         MYLOGI("fstat failed");
         return 0;
     }
-    pST_ENC->m_blksize = stat1.st_blksize;
-    void* mmapResult = mmap(0, stat1.st_blksize, PROT_WRITE|PROT_READ, MAP_PRIVATE, openResult, 0);// 将文件映射到内存
+    pST_ENC->m_blksize = stat1.st_size;
+    void* mmapResult = mmap(NULL , stat1.st_size, PROT_WRITE|PROT_READ, MAP_PRIVATE, openResult, 0);// 将文件映射到内存
+    if(mmapResult == (void*)-1){
+        MYLOGI("mmap dex file :%s", strerror(errno));
+        MYLOGI("exit parse_dex error");
+        return NULL;
+    }
     pST_ENC->m_mmapResult = mmapResult;
     close(openResult);
     MYLOGI("dex magic %c %c %c %c %c %c %c",
-           ((char*)mmapResult)[0],
-           ((char*)mmapResult)[1],
-           ((char*)mmapResult)[2],
-           ((char*)mmapResult)[3],
-           ((char*)mmapResult)[4],
-           ((char*)mmapResult)[5],
-           ((char*)mmapResult)[6]);
+           ((char*)mmapResult+4)[0],
+           ((char*)mmapResult+4)[1],
+           ((char*)mmapResult+4)[2],
+           ((char*)mmapResult+4)[3],
+           ((char*)mmapResult+4)[4],
+           ((char*)mmapResult+4)[5],
+           ((char*)mmapResult+4)[6]);
+
+    *pOutFileSize = pST_ENC->m_blksize;
+    *pOutMemAddr = *((int*)&pST_ENC->m_mmapResult);
     return pST_ENC->m_mmapResult;
 }
 
@@ -839,13 +847,14 @@ int parse_dex(JNIEnv *env, DexOrJar **pOutDexOrJar)
             int OutMemAddr;
             int OutFileSize;
             mmapAddr = openWithHeader(pEnc, &OutMemAddr, &OutFileSize, 16);
-            fileMemAddr = *((int*)&mmapAddr) + 16;
-            if(fileMemAddr == -1)
+            if(mmapAddr == NULL)
             {
                 MYLOGI("mmap dex file :%s", strerror(errno));
                 MYLOGI("exit parse_dex error");
                 return -1;
             }
+            // 这个加16是怎么来的？？？猜测解密数据本来就有
+            fileMemAddr = *((int*)&mmapAddr) + 16;
             int fileSize = *(int *)(fileMemAddr + 0x20); // dex偏移0x20为文件大小
             // 动态调用libdvm库的openDexFile加载内存中的JAR包
             void* dvmHandle = dlopen("libdvm.so", RTLD_LAZY);
@@ -854,8 +863,13 @@ int parse_dex(JNIEnv *env, DexOrJar **pOutDexOrJar)
             FuncOpenDex pfuncopenDexFile;
             lookup(dexfile, "openDexFile", "([B)I", &pfuncopenDexFile);
             *((int *)OutMemAddr + 2) = OutFileSize;
-            DexOrJar *pDexOrJar;
-            pfuncopenDexFile((jobjectArray)OutMemAddr, pDexOrJar);
+            DexOrJar *pDexOrJar = NULL;
+            pfuncopenDexFile((unsigned int *)&OutMemAddr, (jvalue*)&pDexOrJar);
+            if(pDexOrJar == NULL)
+            {
+                MYLOGI("openDexFile dex file :%s", strerror(errno));
+                return -1;
+            }
             pDexOrJar->pRawDexFile->pDvmDex->memMap.addr = pDexOrJar->pDexMemory;
             pDexOrJar->pRawDexFile->pDvmDex->memMap.length = fileSize;
             delete pEnc;

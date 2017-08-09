@@ -24,13 +24,12 @@
 #define LOGCAT_TAG "AqCxBoM"
 #define MYLOGE(...) if(ENABLE_LOGCAT) __android_log_print(ANDROID_LOG_ERROR, LOGCAT_TAG, __VA_ARGS__)
 #define MYLOGI(...) if(ENABLE_LOGCAT) __android_log_print(LOGCAT_LEVEL, LOGCAT_TAG, __VA_ARGS__)
-#define LOGI(...) if(ENABLE_LOGCAT) __android_log_print(LOGCAT_LEVEL, LOGCAT_TAG, __VA_ARGS__)
-#define LOGE(...) if(ENABLE_LOGCAT) __android_log_print(LOGCAT_LEVEL, LOGCAT_TAG, __VA_ARGS__)
-#define LOGW(...) if(ENABLE_LOGCAT) __android_log_print(LOGCAT_LEVEL, LOGCAT_TAG, __VA_ARGS__)
-#define ALOG(...) if(ENABLE_LOGCAT) __android_log_print(LOGCAT_LEVEL, __VA_ARGS__)
-#define MYLOG(...) \
-  if(ENABLE_LOGCAT) \
-    __android_log_print(LOGCAT_LEVEL, __VA_ARGS__)
+
+#define LOGI(...) if(ENABLE_LOGCAT) __android_log_print(ANDROID_LOG_INFO, __VA_ARGS__)
+#define LOGE(...) if(ENABLE_LOGCAT) __android_log_print(ANDROID_LOG_ERROR, __VA_ARGS__)
+#define LOGW(...) if(ENABLE_LOGCAT) __android_log_print(ANDROID_LOG_WARN, __VA_ARGS__)
+#define LOGD(...) if(ENABLE_LOGCAT) __android_log_print(ANDROID_LOG_DEBUG, __VA_ARGS__)
+#define LOGF(...) if(ENABLE_LOGCAT) __android_log_print(ANDROID_LOG_FATAL, __VA_ARGS__)
 #endif
 
 extern "C" jstring JNICALL stringFromJNI (IN JNIEnv *pEnv, IN jobject obj);

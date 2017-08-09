@@ -112,10 +112,10 @@ int g_nSDKINT;
 
 bool initClassesAndMethods(JNIEnv *pEnv)
 {
-    MYLOG("debug", "enter init classes");
+    MYLOGI("enter init classes");
     if ( g_NewClsGlabel(pEnv, &g_ClsBuildVersion, "android/os/Build$VERSION") )
     {
-        MYLOG("debug", "ERROR: class version");
+        MYLOGI("ERROR: class version");
     }
     else
     {
@@ -123,17 +123,17 @@ bool initClassesAndMethods(JNIEnv *pEnv)
         g_nSDKINT = pEnv->GetStaticIntField(g_ClsBuildVersion, g_FieldIDSDK_INT);
         if ( g_NewClsGlabel(pEnv, &g_ClsActivityThread, "android/app/ActivityThread") )
         {
-            MYLOG("debug", "ERROR: class ActivityThread");
+            MYLOGI("ERROR: class ActivityThread");
         }
         else
         {
-            MYLOG( "debug", "sdk_int is %d", g_nSDKINT);
+            MYLOGI("sdk_int is %d", g_nSDKINT);
             if(g_nSDKINT > 18)
             {
                 g_FieldIDmPackages = pEnv->GetFieldID(g_ClsActivityThread, "mPackages", "Landroid/util/ArrayMap;");
                 if ( g_NewClsGlabel(pEnv, &g_ClsArrayMap, "android/util/ArrayMap") )
                 {
-                    MYLOG( "debug", "ERROR: ArrayMap");
+                    MYLOGI("ERROR: ArrayMap");
                     return false;
                 }
                 g_MethodIDArrayMapget = pEnv->GetMethodID(g_ClsArrayMap, "get", "(Ljava/lang/Object;)Ljava/lang/Object;");
@@ -143,7 +143,7 @@ bool initClassesAndMethods(JNIEnv *pEnv)
                 g_FieldIDmPackages = pEnv->GetFieldID(g_ClsActivityThread, "mPackages", "Ljava/util/HashMap;");
                 if ( g_NewClsGlabel(pEnv, &g_ClsHashMap, "android/util/HashMap") )
                 {
-                    MYLOG( "debug", "ERROR: HashMap");
+                    MYLOGI("ERROR: HashMap");
                     return false;
                 }
                 g_MethodIDHashMapget = pEnv->GetMethodID(g_ClsHashMap, "get", "(Ljava/lang/Object;)Ljava/lang/Object;");
@@ -162,14 +162,14 @@ bool initClassesAndMethods(JNIEnv *pEnv)
                                                                     "()Landroid/app/ActivityThread;");
             if ( g_NewClsGlabel(pEnv, &g_clsAppBindData, "android/app/ActivityThread$AppBindData") )
             {
-                MYLOG( "debug", "ERROR: class AppBindData");
+                MYLOGI("ERROR: class AppBindData");
             }
             else
             {
                 g_FieldIDinfo = pEnv->GetFieldID(g_clsAppBindData, "info", "Landroid/app/LoadedApk;");
                 if ( g_NewClsGlabel(pEnv, &g_clsArrayList, "java/util/ArrayList") )
                 {
-                    MYLOG( "debug", "ERROR: class ArrayList");
+                    MYLOGI("ERROR: class ArrayList");
                 }
                 else
                 {
@@ -178,7 +178,7 @@ bool initClassesAndMethods(JNIEnv *pEnv)
                     g_MethodIDArrayListset  = pEnv->GetMethodID(g_clsArrayList, "set", "(ILjava/lang/Object;)Ljava/lang/Object;");
                     if ( g_NewClsGlabel(pEnv, &g_clsContext, "android/content/Context") )
                     {
-                        MYLOG( "debug", "ERROR: class Context");
+                        MYLOGI("ERROR: class Context");
                     }
                     else
                     {
@@ -189,14 +189,14 @@ bool initClassesAndMethods(JNIEnv *pEnv)
                         g_MethodIDgetPackageResourcePath = pEnv->GetMethodID(g_clsContext, "getPackageResourcePath", "()Ljava/lang/String;");
                         if(g_NewClsGlabel(pEnv, &g_clsWeakReference, "java/lang/ref/WeakReference"))
                         {
-                            MYLOG( "debug", "ERROR: class WeakReference");
+                            MYLOGI("ERROR: class WeakReference");
                         }
                         else
                         {
                             g_MethodIDWeakReferenceget = pEnv->GetMethodID(g_clsWeakReference, "get", "()Ljava/lang/Object;");
                             if ( g_NewClsGlabel(pEnv, &g_clsLoadedApk, "android/app/LoadedApk") )
                             {
-                                MYLOG( "debug", "ERROR: class LoadedApk");
+                                MYLOGI("ERROR: class LoadedApk");
                             }
                             else
                             {
@@ -211,7 +211,7 @@ bool initClassesAndMethods(JNIEnv *pEnv)
                                                                         "Landroid/app/Application;");
                                 if ( g_NewClsGlabel(pEnv, &g_clsApplicationInfo, "android/content/pm/ApplicationInfo") )
                                 {
-                                    MYLOG( "debug", "ERROR: class ApplicationInfo");
+                                    MYLOGI("ERROR: class ApplicationInfo");
                                 }
                                 else
                                 {
@@ -226,7 +226,7 @@ bool initClassesAndMethods(JNIEnv *pEnv)
                                             "Ljava/lang/String;");
                                     if ( g_NewClsGlabel(pEnv, &g_clsApplication, "android/app/Application") )
                                     {
-                                        MYLOG( "debug", "ERROR: class Application");
+                                        MYLOGI("ERROR: class Application");
                                     }
                                     else
                                     {
@@ -237,7 +237,7 @@ bool initClassesAndMethods(JNIEnv *pEnv)
                                                 "(Landroid/content/Context;)V");
                                         if(g_NewClsGlabel(pEnv, &g_clsContextWrapper, "android/content/ContextWrapper"))
                                         {
-                                            MYLOG( "debug", "ERROR: class ContextWrapper");
+                                            MYLOGI("ERROR: class ContextWrapper");
                                         }
                                         else
                                         {
@@ -245,10 +245,10 @@ bool initClassesAndMethods(JNIEnv *pEnv)
                                                     g_clsContextWrapper,
                                                     "attachBaseContext",
                                                     "(Landroid/content/Context;)V");
-                                            MYLOG( "debug", "PathClassLoader start");
+                                            MYLOGI("PathClassLoader start");
                                             if ( g_NewClsGlabel(pEnv, &g_clsPathClassLoader, "dalvik/system/PathClassLoader") )
                                             {
-                                                MYLOG( "debug", "ERROR: class PathClassLoader");
+                                                MYLOGI("ERROR: class PathClassLoader");
                                             }
                                             else
                                             {
@@ -256,7 +256,7 @@ bool initClassesAndMethods(JNIEnv *pEnv)
                                                 {
                                                     if ( g_NewClsGlabel(pEnv, &g_clsBaseDexClassLoader, "dalvik/system/BaseDexClassLoader") )
                                                     {
-                                                        MYLOG( "debug", "ERROR: BaseDexClassLoader");
+                                                        MYLOGI("ERROR: BaseDexClassLoader");
                                                     }
                                                     g_FieldIDpathList = pEnv->GetFieldID(
                                                             g_clsBaseDexClassLoader,
@@ -264,7 +264,7 @@ bool initClassesAndMethods(JNIEnv *pEnv)
                                                             "Ldalvik/system/DexPathList;");
                                                     if ( g_NewClsGlabel(pEnv, &g_clsDexPathList, "dalvik/system/DexPathList") )
                                                     {
-                                                        MYLOG( "debug", "ERROR: class DexPathList");
+                                                        MYLOGI("ERROR: class DexPathList");
                                                         return false;
                                                     }
                                                     g_FieldIDdexElements = pEnv->GetFieldID(
@@ -273,7 +273,7 @@ bool initClassesAndMethods(JNIEnv *pEnv)
                                                             "[Ldalvik/system/DexPathList$Element;");
                                                     if ( g_NewClsGlabel(pEnv, &g_clsElement, "dalvik/system/DexPathList$Element") )
                                                     {
-                                                        MYLOG( "debug", "ERROR: class Element");
+                                                        MYLOGI("ERROR: class Element");
                                                         return false;
                                                     }
                                                     g_FieldIDdexfile = pEnv->GetFieldID(
@@ -291,7 +291,7 @@ bool initClassesAndMethods(JNIEnv *pEnv)
                                                 }
                                                 if ( g_NewClsGlabel(pEnv, &g_clsFile, "java/io/File") )
                                                 {
-                                                    MYLOG( "debug", "ERROR: class File");
+                                                    MYLOGI("ERROR: class File");
                                                     return false;
                                                 }
                                                 else
@@ -300,10 +300,10 @@ bool initClassesAndMethods(JNIEnv *pEnv)
                                                             g_clsFile,
                                                             "getAbsolutePath",
                                                             "()Ljava/lang/String;");
-                                                    MYLOG( "debug", "PathClassLoader end");
+                                                    MYLOGI("PathClassLoader end");
                                                     if ( g_NewClsGlabel(pEnv, &g_clsDexFile, "dalvik/system/DexFile") )
                                                     {
-                                                        MYLOG( "debug", "ERROR: class DexFile");
+                                                        MYLOGI("ERROR: class DexFile");
                                                         return false;
                                                     }
                                                     else
@@ -326,7 +326,7 @@ bool initClassesAndMethods(JNIEnv *pEnv)
                                                         }
                                                         if ( g_NewClsGlabel(pEnv, &g_clsClassLoader, "java/lang/ClassLoader") )
                                                         {
-                                                            MYLOG( "debug", "ERROR: class ClassLoader");
+                                                            MYLOGI("ERROR: class ClassLoader");
                                                             return false;
                                                         }
                                                         else
@@ -335,10 +335,10 @@ bool initClassesAndMethods(JNIEnv *pEnv)
                                                                     g_clsClassLoader,
                                                                     "findClass",
                                                                     "(Ljava/lang/String;)Ljava/lang/Class;");
-                                                            MYLOG( "debug", "System start");
+                                                            MYLOGI("System start");
                                                             if(g_NewClsGlabel(pEnv, &g_clsSystem, "java/lang/System"))
                                                             {
-                                                                MYLOG( "debug", "ERROR: class System");
+                                                                MYLOGI("ERROR: class System");
                                                                 return false;
                                                             }
                                                             else
@@ -347,7 +347,7 @@ bool initClassesAndMethods(JNIEnv *pEnv)
                                                                         g_clsSystem,
                                                                         "getProperty",
                                                                         "(Ljava/lang/String;)Ljava/lang/String;");
-                                                                MYLOG( "debug", "exit init classes normal");
+                                                                MYLOGI("exit init classes normal");
                                                                 jstring strVersion = pEnv->NewStringUTF("java.vm.version");
                                                                 jstring objVersion = (jstring)pEnv->CallStaticObjectMethod(g_clsSystem, g_StaticMethodIDgetProperty, strVersion);
                                                                 const char* pVersion = (const char*)pEnv->GetStringUTFChars(objVersion, 0);
@@ -379,7 +379,7 @@ void test(JNIEnv *env)
 }
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
-    LOGI("JNI_OnLoad");
+    MYLOGI("JNI_OnLoad");
     JNIEnv *env = NULL;
 
     if (vm->GetEnv((void **) &env, JNI_VERSION_1_6) != JNI_OK) {
@@ -390,12 +390,12 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
                               sizeof(gMethods) / sizeof(gMethods[0])) == JNI_FALSE) {
         return JNI_ERR;
     }
-    LOGI("So load success");
+    MYLOGI("So load success");
     return JNI_VERSION_1_6;
 }
 
 JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *vm, void *reserved) {
-LOGI("JNI_OnUnload");
+MYLOGI("JNI_OnUnload");
 return;
 }
 //data/data/packagename/files
@@ -424,13 +424,13 @@ int u_releaseFile(JNIEnv *env, jobject objApplication)
             void *pNew = calloc((size_t)stat1.st_blksize, 1);
             if(pNew)
             {
-                MYLOGI("debug", "calloc error: %d", errno);
+                MYLOGI("calloc error: %d", errno);
                 return false;
             }
             //读取文件内容并判断是否与预期一致
             fread(pNew, (size_t)stat1.st_blksize, 1, file);
             fclose(file);
-            MYLOGI("debug", "buf:%s timestamp:%s", pNew, STAMPFILECONTEXT);
+            MYLOGI("buf:%s timestamp:%s", pNew, STAMPFILECONTEXT);
             //检查存储内容是否与预设一致
             int nCmpResult = strncmp((const char*)pNew, STAMPFILECONTEXT, strlen(STAMPFILECONTEXT));
             //不一致就到后面删除并重新写入预期的内容
@@ -441,11 +441,11 @@ int u_releaseFile(JNIEnv *env, jobject objApplication)
         //写入预期的内容作为防止重复释放的标志
         if(isUpdata)
         {
-            MYLOGI("debug", "after update, remove files");
+            MYLOGI("after update, remove files");
             strcat(clsdexPath, "/cls.dex");
             int nunlinkResult = unlink(clsdexPath); // unlink为文件删除命令,成功执行返回0
             if(nunlinkResult)
-                MYLOGI("debug", "failed to rm files with error:%d", errno);
+                MYLOGI("failed to rm files with error:%d", errno);
             FILE* file = fopen(timestamp, "w");
             fwrite(STAMPFILECONTEXT, strlen(STAMPFILECONTEXT), 1u, file);
             fclose(file);
@@ -471,7 +471,7 @@ int u_releaseFile(JNIEnv *env, jobject objApplication)
         {
             //AAssetManager打开目标文件i准备读取
             AAsset * aa = AAssetManager_open(AssetsManager, fileAry[i], AASSET_MODE_STREAMING);// 调用AssetsManager.open获取InputStream
-            MYLOGI("debug", "extract file %s", curFilePath);
+            MYLOGI("extract file %s", curFilePath);
             if(aa)
             {
                 int nRead = 1;
@@ -486,14 +486,14 @@ int u_releaseFile(JNIEnv *env, jobject objApplication)
                 AAsset_close(aa);
             }
             else
-                MYLOGI("debug", "file not found");
+                MYLOGI("file not found");
         }
     }
     return 0;
 }
 int fun_attachBaseContext(JNIEnv *env, _jobject *objApplication, _jobject *context)
 {
-    MYLOG("debug", "in...");
+    MYLOGI("in...");
     //初始化必要类及方法
     bool bRet = initClassesAndMethods(env);
     //初始化成功
@@ -543,7 +543,8 @@ int fun_attachBaseContext(JNIEnv *env, _jobject *objApplication, _jobject *conte
             const char* pDataDir = env->GetStringUTFChars(strnativeLibraryDir, JNI_FALSE);
             if(!pDataDir)
                 return 0;
-            strncpy(NativeLibraryDir, pDataDir, strlen(pDataDir));
+            //strncpy(NativeLibraryDir, pDataDir, strlen(pDataDir) + 1);
+            strcpy(NativeLibraryDir, pDataDir);
             strcat(NativeLibraryDir, "/lib");
         }
         MYLOGI("global native path is %s", NativeLibraryDir);
@@ -572,47 +573,48 @@ int fun_attachBaseContext(JNIEnv *env, _jobject *objApplication, _jobject *conte
         //从Context获取ClassLoader
         jobject objClassLoader = env->CallObjectMethod(context, g_MethodIDgetClassLoader);
         //解析dex
-        //parse_dex ...
+        //parse_dex 加载JAR包，返回DexOrJar的指针
         DexOrJar *pDexOrJar;
         parse_dex(env, &pDexOrJar);
-        //replace_classloader_cookie
+        //replace_classloader_cookie 替换ClassLoader相关字段
         jobject classloader = env->CallObjectMethod(context, g_MethodIDgetClassLoader);
         replase_classloader_cookie(env, classloader, pDexOrJar);
-        MYLOGI("debug", "enter new application");
-        //调用ClassLoader的findClass方法获得android.app.Application类的class
+        MYLOGI("enter new application");
+        // new一个Application并attach到当前的参数context
+        // 第一步调用ClassLoader的findClass方法获得android.app.Application类的class
         jstring string_androidappApplication = env->NewStringUTF("android.app.Application");
         //classLoader;->findClass("android.app.Application")
         jobject objNewApplication = NULL;
         jclass clsApplication2 = (jclass)env->CallObjectMethod(objClassLoader, g_MethodIDfindClass, string_androidappApplication);
-        //new一个Application并调用其attach到context
+
         if(clsApplication2)
         {
+            // 第二步调用Applicaton类的初始化方法
             jmethodID mIDinit = env->GetMethodID(clsApplication2, "<init>", "()V");
             objNewApplication = env->NewObject(clsApplication2, mIDinit);
+            // 第三步完成attach操作
             env->CallVoidMethod(objNewApplication, g_MethodIDattach, context);
             env->DeleteLocalRef(clsApplication2);
-            MYLOGI("debug", "exit new application");
+            MYLOGI("exit new application");
         }
         else
         {
-            MYLOGI("debug", "can't findClass realAppClass");
+            MYLOGI("can't findClass realAppClass");
         }
         if(objNewApplication)
         {
             g_NewApplication = env->NewGlobalRef(objNewApplication);
         }
-        MYLOGI("debug", "exit attachBaseContext");
+        MYLOGI("exit attachBaseContext");
     }
     return 0;
 }
-/*
- * 还有问题！
- */
+
 int fun_onCreate(JNIEnv *env, jobject objBundle)
 {
     if (g_NewApplication)
     {
-        MYLOGI("debug", "enter replace_app_application");
+        MYLOGI("enter replace_app_application");
         //从ActivityThread类调用currentActivityThread方法获取currentActivityThread对象
         jobject objcurrentActivityThread = env->CallStaticObjectMethod(g_ClsActivityThread, g_MethodIDcurrentActivityThread, 0xFFFFFC4C);
         //ActivityThread;->mPackages 获取mPackage域成员对象
@@ -653,7 +655,7 @@ int fun_onCreate(JNIEnv *env, jobject objBundle)
             jboolean bResult = env->IsSameObject(objBundle, objApplicationN);
             if(bResult)
             {
-                MYLOGI("debug", "replace: find same replace");
+                MYLOGI("replace: find same replace");
                 env->CallObjectMethod(objmAllApplications, g_MethodIDArrayListset, i, g_NewApplication);
             }
             env->DeleteLocalRef(objApplicationN);
@@ -664,15 +666,15 @@ int fun_onCreate(JNIEnv *env, jobject objBundle)
         env->DeleteLocalRef(objLoadedApk);
         env->DeleteLocalRef(objmPackages);
         env->DeleteLocalRef(objcurrentActivityThread);
-        MYLOGI( "debug", "exit replace_app_application");
-        MYLOGI( "debug", "call onCreate start");
+        MYLOGI("exit replace_app_application");
+        MYLOGI( "call onCreate start");
         env->CallVoidMethod(g_NewApplication, g_MethodIDonCreate);
-        MYLOGI( "debug", "call onCreate end");
+        MYLOGI( "call onCreate end");
         env->DeleteGlobalRef(g_NewApplication);
         return 1;
     }
     else
-        MYLOGI("debug", "no g_realApplication just free classes and assets");
+        MYLOGI("no g_realApplication just free classes and assets");
     return 0;
 }
 // 替换对应结构Cookie结构，用pDexOrJar指针
@@ -794,6 +796,7 @@ void* openWithHeader(ST_ENC *pST_ENC, int *pOutMemAddr, int *pOutFileSize, int n
         MYLOGI("fstat failed");
         return 0;
     }
+    // 这两个有疑问
     pST_ENC->m_blksize = stat1.st_size - 16;
     void* mmapResult = mmap(NULL , stat1.st_size + 16, PROT_WRITE|PROT_READ, MAP_PRIVATE, openResult, 0);// 将文件映射到内存
     if(mmapResult == (void*)-1){
@@ -840,23 +843,28 @@ int parse_dex(JNIEnv *env, DexOrJar **pOutDexOrJar)
         strcat(clsPath, "/cls.jar");
         ST_ENC *pEnc = new ST_ENC();
         EncInit(pEnc, clsPath);
-        void* mmapAddr;
-        int fileMemAddr;
+        ArrayObject* aObj;
+        int dexFileMemAddr;
         if(g_nSDKINT > 13)
         {
             int OutMemAddr;
             int OutFileSize;
-            mmapAddr = openWithHeader(pEnc, &OutMemAddr, &OutFileSize, 16);
-            if(mmapAddr == NULL)
+            // mmap该文件到内存中，最后一个参数完全没用上
+            aObj = (ArrayObject*)openWithHeader(pEnc, &OutMemAddr, &OutFileSize, 16);
+            if(aObj == NULL)
             {
                 MYLOGI("mmap dex file :%s", strerror(errno));
                 MYLOGI("exit parse_dex error");
                 return -1;
             }
-            // 这个加16是怎么来的？？？猜测解密数据本来就有
-            fileMemAddr = *((int*)&mmapAddr) + 16;
-            int fileSize = *(int *)(fileMemAddr + 0x20); // dex偏移0x20为文件大小
-            *(int*)(*((int*)&mmapAddr) + 8) = fileSize;  // 覆写map地址+8位置内容
+            // 加载的这个文件其实就是伪造的加载了dex文件内容的ArrayObject结构,dex文件内容就在+16位置
+            dexFileMemAddr = (int)&aObj->contents;
+            //dexFileMemAddr = *((int*)&mmapAddr) + 16;
+
+            u4 fileSize = *(u4 *)(dexFileMemAddr + 0x20); // dex偏移0x20为文件大小
+
+            aObj->length = fileSize;
+            //*(int*)(*((int*)&mmapAddr) + 8) = fileSize;  // 覆写map地址+8位置内容
 
             // 动态调用libdvm库的openDexFile加载内存中的JAR包
             void* dvmHandle = dlopen("libdvm.so", RTLD_LAZY);
@@ -866,6 +874,7 @@ int parse_dex(JNIEnv *env, DexOrJar **pOutDexOrJar)
             lookup(dexfile, "openDexFile", "([B)I", &pfuncopenDexFile);
             *((int *)OutMemAddr + 2) = OutFileSize;
             DexOrJar *pDexOrJar = NULL;
+            // openDexFile参数一为ArrayObject指针，参数二为DexOrJar指针输出
             pfuncopenDexFile((unsigned int *)&OutMemAddr, (jvalue*)&pDexOrJar);
             if(pDexOrJar == NULL)
             {

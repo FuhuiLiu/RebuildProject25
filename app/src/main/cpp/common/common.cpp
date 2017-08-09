@@ -77,7 +77,7 @@ jclass findAppClass(JNIEnv *jenv, const char *apn) {
     char adjustApn[MAXCLASSNAMEBUFLEN];
     if(!apn)
     {
-        ALOG(LOGCAT_TAG, "ClassName empty!!!");
+        MYLOGE( "ClassName empty!!!");
         return NULL;
     }
     else
@@ -108,7 +108,7 @@ jclass findAppClass(JNIEnv *jenv, const char *apn) {
             "android/app/ApplicationLoaders");
     jthrowable exception = jenv->ExceptionOccurred();
     if (ClearException(jenv)) {
-        ALOG("Exception", "No class : %s", "android/app/ApplicationLoaders");
+        LOGI("Exception", "No class : %s", "android/app/ApplicationLoaders");
         return NULL;
     }
 
@@ -116,13 +116,13 @@ jclass findAppClass(JNIEnv *jenv, const char *apn) {
             clasApplicationLoaders, "gApplicationLoaders",
             "Landroid/app/ApplicationLoaders;");
     if (ClearException(jenv)) {
-        ALOG("Exception", "No Static Field :%s", "gApplicationLoaders");
+        LOGI("Exception", "No Static Field :%s", "gApplicationLoaders");
         return NULL;
     }
     jobject objApplicationLoaders = jenv->GetStaticObjectField(
             clasApplicationLoaders, fieldApplicationLoaders);
     if (ClearException(jenv)) {
-        ALOG("Exception", "GetStaticObjectField is failed [%s]",
+        LOGI("Exception", "GetStaticObjectField is failed [%s]",
              "gApplicationLoaders");
         return NULL;
     }
@@ -130,14 +130,14 @@ jclass findAppClass(JNIEnv *jenv, const char *apn) {
     if (ClearException(jenv)) {
         fieldLoaders = jenv->GetFieldID(clasApplicationLoaders, "mLoaders", "Ljava/util/Map;");
         if(ClearException(jenv)){
-            ALOG("Exception", "No Field :%s", "mLoaders");
+            LOGI("Exception", "No Field :%s", "mLoaders");
             return NULL;
         }
     }
     jobject objLoaders = jenv->GetObjectField(objApplicationLoaders,
                                               fieldLoaders);
     if (ClearException(jenv)) {
-        ALOG("Exception", "No object :%s", "mLoaders");
+        LOGI("Exception", "No object :%s", "mLoaders");
         return NULL;
     }
 
@@ -150,14 +150,14 @@ jclass findAppClass(JNIEnv *jenv, const char *apn) {
     jmethodID methodToArray = jenv->GetMethodID(classValues, "toArray",
                                                 "()[Ljava/lang/Object;");
     if (ClearException(jenv)) {
-        ALOG("Exception", "No Method:%s", "toArray");
+        LOGI("Exception", "No Method:%s", "toArray");
         return NULL;
     }
 
     jobjectArray classLoaders = (jobjectArray) jenv->CallObjectMethod(values,
                                                                       methodToArray);
     if (ClearException(jenv)) {
-        ALOG("Exception", "CallObjectMethod failed :%s", "toArray");
+        LOGI("Exception", "CallObjectMethod failed :%s", "toArray");
         return NULL;
     }
 

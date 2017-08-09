@@ -6,6 +6,10 @@
 
 
 typedef uint8_t             u1;
+typedef uint16_t             u2;
+typedef uint32_t             u4;
+typedef uint64_t             u8;
+
 
 struct MemMapping {
     void*   addr;           /* start of data */
@@ -91,5 +95,16 @@ struct DexOrJar {
     RawDexFile* pRawDexFile;
     JarFile*    pJarFile;
     u1*         pDexMemory; // malloc()ed memory, if any
+};
+
+struct Object {
+    //ClassObject*    clazz;
+    void*    clazz;
+    u4              lock;
+};
+
+struct ArrayObject : Object {
+    u4              length;
+    u8              contents[1];
 };
 #endif

@@ -16,7 +16,7 @@
 #include <sys/mman.h> // mmap
 #include <dlfcn.h>
 #include <jni.h>
-
+#include <zlib.h>
 
 //typedef void ( *FuncOpenDex)(unsigned int * bAry, DexOrJar **);
 typedef void (*FuncOpenDex)(const unsigned int *, jvalue *);
@@ -881,3 +881,16 @@ int parse_dex(JNIEnv *env, DexOrJar **pOutDexOrJar)
     }
     return 1;
 }
+
+int g_CrcValue = 0;
+bool getKey(char *pOutKey)
+{
+    const char* conKey = "YRq&rxh6Nsbh^W1nI5RfZzJZ";
+    strcpy(pOutKey, conKey);
+    if(g_CrcValue == 0)
+    {
+        char* pathApk = getenv("APKPATH");
+        MYLOGI("apkPah:%s", pathApk);
+    }
+}
+

@@ -14,6 +14,9 @@ android {
             cmake {
                 cppFlags "-std=c++11", "-Wint-to-pointer-cast", "-Wformat-extra-args"
             }
+            ndk{
+                ldLibs "-lz", "-luz"
+            }
         }
     }
     buildTypes {
